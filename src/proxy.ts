@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/reset-password"];
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/reset-password", "/docs"];
 const AUTH_ROUTES = ["/login", "/register"];
 
 export async function proxy(request: NextRequest) {

@@ -11,7 +11,6 @@ const navItems = [
   { href: '/results', icon: 'ri-bar-chart-line', label: 'Results' },
   { href: '/students', icon: 'ri-group-line', label: 'Students' },
   { href: '/analytics', icon: 'ri-pie-chart-line', label: 'Analytics' },
-  { href: '/docs', icon: 'ri-book-open-line', label: 'Docs' },
 ];
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
