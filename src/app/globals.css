@@ -11,7 +11,68 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-pacifico: var(--font-pacifico);
+
+  --animate-float:       float 4s ease-in-out infinite;
+  --animate-float-slow:  float 6s ease-in-out infinite;
+  --animate-blob:        blob 8s ease-in-out infinite;
+  --animate-fade-up:     fadeUp 0.7s ease forwards;
+  --animate-fade-in:     fadeIn 0.5s ease forwards;
+  --animate-slide-right: slideRight 0.6s ease forwards;
+  --animate-slide-left:  slideLeft 0.6s ease forwards;
+  --animate-marquee:     marquee 28s linear infinite;
+  --animate-pulse-soft:  pulseSoft 3s ease-in-out infinite;
+  --animate-spin-slow:   spin 12s linear infinite;
+  --animate-ping-slow:   ping 3s cubic-bezier(0,0,0.2,1) infinite;
 }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+
+@keyframes blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, -50px) scale(1.12); }
+  66%       { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideLeft {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* Scroll-reveal utility — applied by IntersectionObserver */
+.reveal        { opacity: 0; transform: translateY(28px); transition: opacity 0.65s ease, transform 0.65s ease; }
+.reveal.in-view { opacity: 1; transform: translateY(0); }
+.reveal-left   { opacity: 0; transform: translateX(-32px); transition: opacity 0.65s ease, transform 0.65s ease; }
+.reveal-left.in-view { opacity: 1; transform: translateX(0); }
+.reveal-right  { opacity: 0; transform: translateX(32px); transition: opacity 0.65s ease, transform 0.65s ease; }
+.reveal-right.in-view { opacity: 1; transform: translateX(0); }
 
 body {
   background: var(--background);
