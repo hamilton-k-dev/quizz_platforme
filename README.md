@@ -2,6 +2,8 @@
 
 A full-stack quiz management platform built with Next.js 16, better-auth, Prisma 7, and Neon PostgreSQL. Includes an admin dashboard for managing quizzes, questions, students, and analytics, plus a student-facing interface for taking timed quizzes.
 
+**Live demo:** [quizz-platforme.vercel.app](https://quizz-platforme.vercel.app/)
+
 ---
 
 ## Features
