@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import AddStudentModal, { type Student } from './AddStudentModal';
 
-const students = [
+const INITIAL_STUDENTS: Student[] = [
   { id: 1, name: 'Alice Johnson', email: 'alice@school.edu', avatar: 'AJ', color: 'bg-blue-500', attempts: 12, avgScore: 88, passRate: 92, joined: 'Jan 2024' },
   { id: 2, name: 'Bob Smith', email: 'bob@school.edu', avatar: 'BS', color: 'bg-purple-500', attempts: 8, avgScore: 71, passRate: 75, joined: 'Feb 2024' },
   { id: 3, name: 'Carlos Rivera', email: 'carlos@school.edu', avatar: 'CR', color: 'bg-green-500', attempts: 15, avgScore: 83, passRate: 87, joined: 'Jan 2024' },
@@ -18,8 +20,16 @@ const students = [
 ];
 
 export default function StudentsPage() {
+  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<typeof students[0] | null>(null);
+  const [selected, setSelected] = useState<Student | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const handleAddStudent = (data: Omit<Student, 'id'>) => {
+    const id = Math.max(...students.map(s => s.id)) + 1;
+    setStudents(prev => [...prev, { id, ...data }]);
+    toast.success(`${data.name} has been added successfully`);
+  };
 
   const filtered = students.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -34,7 +44,7 @@ export default function StudentsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Students</h1>
             <p className="text-sm text-gray-500 mt-1">{students.length} enrolled students</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-all cursor-pointer shadow-sm whitespace-nowrap">
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-all cursor-pointer shadow-sm whitespace-nowrap">
             <i className="ri-user-add-line text-base"></i>
             Add Student
           </button>
@@ -94,6 +104,10 @@ export default function StudentsPage() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <AddStudentModal onClose={() => setShowAdd(false)} onAdd={handleAddStudent} />
+      )}
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

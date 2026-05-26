@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 
-const notifications = [
+type Notification = { id: number; text: string; time: string; read: boolean };
+
+const INITIAL_NOTIFICATIONS: Notification[] = [
   { id: 1, text: 'Alice Johnson completed "Math Basics" quiz', time: '2m ago', read: false },
   { id: 2, text: 'New student Bob Smith registered', time: '15m ago', read: false },
   { id: 3, text: 'Quiz "Science 101" was published', time: '1h ago', read: true },
@@ -13,9 +15,13 @@ const notifications = [
 
 export default function TopNavbar({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
   const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const unread = notifications.filter(n => !n.read).length;
+
+  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markRead = (id: number) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
 
   const handleSignOut = async () => {
     await signOut();
@@ -46,10 +52,12 @@ export default function TopNavbar({ sidebarCollapsed }: { sidebarCollapsed: bool
             <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                 <span className="font-semibold text-sm text-gray-900">Notifications</span>
-                <span className="text-xs text-blue-500 cursor-pointer hover:underline">Mark all read</span>
+                {unread > 0 && (
+                  <span onClick={markAllRead} className="text-xs text-blue-500 cursor-pointer hover:underline">Mark all read</span>
+                )}
               </div>
               {notifications.map(n => (
-                <div key={n.id} className={`px-4 py-3 flex gap-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 ${!n.read ? 'bg-blue-50/50' : ''}`}>
+                <div key={n.id} onClick={() => markRead(n.id)} className={`px-4 py-3 flex gap-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 ${!n.read ? 'bg-blue-50/50' : ''}`}>
                   <div className="w-2 h-2 flex items-center justify-center mt-1.5 flex-shrink-0">
                     {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
                   </div>
