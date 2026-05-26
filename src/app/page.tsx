@@ -1,24 +1,16 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-
-// ---------------------------------------------------------------------------
-// Scroll-reveal hook
-// ---------------------------------------------------------------------------
-function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { el.classList.add('in-view'); obs.disconnect(); } },
-      { threshold: 0.12 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return ref;
-}
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useInView,
+  useSpring,
+  AnimatePresence,
+  stagger,
+  useAnimate,
+} from 'framer-motion';
 
 // ---------------------------------------------------------------------------
 // Animated counter
@@ -26,43 +18,53 @@ function useReveal() {
 function Counter({ to, suffix = '' }: { to: number; suffix?: string }) {
   const [val, setVal] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      obs.disconnect();
-      const start = performance.now();
-      const duration = 1800;
-      const tick = (now: number) => {
-        const p = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - p, 3);
-        setVal(Math.round(eased * to));
-        if (p < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, { threshold: 0.5 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [to]);
+    if (!inView) return;
+    const start = performance.now();
+    const duration = 1800;
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(eased * to));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, to]);
+
   return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
 }
 
 // ---------------------------------------------------------------------------
-// Mock screens
+// Shared variants
 // ---------------------------------------------------------------------------
+const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 32 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+};
+
+const staggerContainer = (delay = 0) => ({
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1, delayChildren: delay } },
+});
+
+// ---------------------------------------------------------------------------
+// Browser chrome wrapper
+// ---------------------------------------------------------------------------
 function BrowserChrome({ url, children }: { url: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl overflow-hidden shadow-2xl border border-gray-200/80 bg-white">
-      <div className="bg-gray-100 px-4 py-2.5 flex items-center gap-2.5 border-b border-gray-200">
+    <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200/60 bg-white ring-1 ring-black/5">
+      <div className="bg-[#f0f0f0] px-4 py-2.5 flex items-center gap-3 border-b border-gray-200/80">
         <div className="flex gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-red-400" />
-          <div className="w-3 h-3 rounded-full bg-amber-400" />
-          <div className="w-3 h-3 rounded-full bg-green-400" />
+          <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+          <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+          <div className="w-3 h-3 rounded-full bg-[#28c840]" />
         </div>
-        <div className="flex-1 mx-2 bg-white rounded-md px-3 py-1 text-xs text-gray-400 flex items-center gap-1.5 border border-gray-200">
-          <i className="ri-lock-line text-gray-300 text-xs" />
+        <div className="flex-1 mx-2 bg-white/80 rounded-lg px-3 py-1 text-[11px] text-gray-400 flex items-center gap-1.5 border border-gray-200/60">
+          <i className="ri-lock-line text-gray-300" />
           {url}
         </div>
       </div>
@@ -71,98 +73,94 @@ function BrowserChrome({ url, children }: { url: string; children: React.ReactNo
   );
 }
 
+// ---------------------------------------------------------------------------
+// Mockups
+// ---------------------------------------------------------------------------
 function DashboardMockup() {
   return (
     <BrowserChrome url="quizmaster.app/dashboard">
-      <div className="bg-gray-50 flex" style={{ height: 340 }}>
-        {/* Sidebar */}
+      <div className="bg-[#f8f9fb] flex" style={{ height: 360 }}>
         <div className="w-14 bg-white border-r border-gray-100 flex flex-col items-center py-4 gap-3 flex-shrink-0">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
             <i className="ri-brain-line text-white text-xs" />
           </div>
-          <div className="mt-2 flex flex-col gap-2">
-            {['ri-dashboard-line', 'ri-file-list-3-line', 'ri-question-line', 'ri-group-line', 'ri-pie-chart-line'].map((icon, i) => (
-              <div key={i} className={`w-7 h-7 flex items-center justify-center rounded-lg ${i === 0 ? 'bg-blue-50 text-blue-600' : 'text-gray-300'}`}>
+          <div className="mt-3 flex flex-col gap-2">
+            {['ri-dashboard-line','ri-file-list-3-line','ri-question-line','ri-group-line','ri-pie-chart-line'].map((icon, i) => (
+              <div key={i} className={`w-7 h-7 flex items-center justify-center rounded-lg ${i===0?'bg-blue-50 text-blue-600':'text-gray-300'}`}>
                 <i className={`${icon} text-sm`} />
               </div>
             ))}
           </div>
         </div>
-        {/* Content */}
-        <div className="flex-1 p-4 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-3">
+        <div className="flex-1 p-5 overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-xs font-bold text-gray-900">Dashboard</p>
-              <p className="text-[10px] text-gray-400">Welcome back, Admin</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Welcome back, Admin</p>
             </div>
-            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
               <span className="text-[9px] text-white font-bold">A</span>
             </div>
           </div>
-          {/* Stat cards */}
-          <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-4 gap-2 mb-4">
             {[
-              { v: '48', l: 'Quizzes', c: 'bg-blue-50 text-blue-600', i: 'ri-file-list-3-line' },
-              { v: '1.2k', l: 'Students', c: 'bg-purple-50 text-purple-600', i: 'ri-group-line' },
-              { v: '5.6k', l: 'Attempts', c: 'bg-green-50 text-green-600', i: 'ri-edit-line' },
-              { v: '74%', l: 'Avg Score', c: 'bg-orange-50 text-orange-600', i: 'ri-bar-chart-line' },
+              { v:'48',   l:'Quizzes',  c:'text-blue-600 bg-blue-50',   i:'ri-file-list-3-line' },
+              { v:'1.2k', l:'Students', c:'text-purple-600 bg-purple-50', i:'ri-group-line' },
+              { v:'5.6k', l:'Attempts', c:'text-green-600 bg-green-50',   i:'ri-edit-line' },
+              { v:'74%',  l:'Avg Score',c:'text-orange-600 bg-orange-50', i:'ri-bar-chart-line' },
             ].map(s => (
-              <div key={s.l} className="bg-white rounded-lg p-2 border border-gray-100 shadow-sm">
-                <div className={`w-5 h-5 rounded-md ${s.c} flex items-center justify-center mb-1.5`}>
+              <div key={s.l} className="bg-white rounded-xl p-2.5 border border-gray-100 shadow-sm">
+                <div className={`w-6 h-6 rounded-lg ${s.c} flex items-center justify-center mb-2`}>
                   <i className={`${s.i} text-xs`} />
                 </div>
-                <p className="text-xs font-bold text-gray-900">{s.v}</p>
-                <p className="text-[9px] text-gray-400">{s.l}</p>
+                <p className="text-[11px] font-bold text-gray-900">{s.v}</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">{s.l}</p>
               </div>
             ))}
           </div>
-          {/* Charts row */}
-          <div className="grid grid-cols-2 gap-2 mb-2">
-            <div className="bg-white rounded-lg p-2.5 border border-gray-100">
-              <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Score Distribution</p>
-              <div className="flex items-end gap-1" style={{ height: 52 }}>
-                {[28, 58, 42, 76, 52, 88, 65].map((h, i) => (
-                  <div key={i} className="flex-1 rounded-t-sm"
-                    style={{ height: `${h}%`, background: `hsl(${220 + i * 5}, 70%, ${55 + i * 2}%)`, opacity: 0.85 }} />
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="bg-white rounded-xl p-3 border border-gray-100">
+              <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Score Dist.</p>
+              <div className="flex items-end gap-1" style={{ height: 56 }}>
+                {[28,58,42,76,52,88,65].map((h,i) => (
+                  <div key={i} className="flex-1 rounded-t-sm" style={{ height:`${h}%`, background:`hsl(${220+i*6},70%,${58+i}%)`, opacity:0.85 }} />
                 ))}
               </div>
               <div className="flex justify-between mt-1">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                {['M','T','W','T','F','S','S'].map((d,i)=>(
                   <span key={i} className="text-[8px] text-gray-300 flex-1 text-center">{d}</span>
                 ))}
               </div>
             </div>
-            <div className="bg-white rounded-lg p-2.5 border border-gray-100">
-              <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Attempts</p>
-              <div className="flex items-end gap-1" style={{ height: 52 }}>
-                {[40, 65, 55, 80, 70, 90, 75].map((h, i) => (
-                  <div key={i} className="flex-1 rounded-t-sm bg-indigo-400" style={{ height: `${h}%`, opacity: 0.7 + i * 0.04 }} />
+            <div className="bg-white rounded-xl p-3 border border-gray-100">
+              <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Attempts</p>
+              <div className="flex items-end gap-1" style={{ height: 56 }}>
+                {[40,65,55,80,70,90,75].map((h,i)=>(
+                  <div key={i} className="flex-1 rounded-t-sm bg-indigo-400" style={{ height:`${h}%`, opacity:0.6+i*0.06 }} />
                 ))}
               </div>
               <div className="flex justify-between mt-1">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                {['M','T','W','T','F','S','S'].map((d,i)=>(
                   <span key={i} className="text-[8px] text-gray-300 flex-1 text-center">{d}</span>
                 ))}
               </div>
             </div>
           </div>
-          {/* Recent activity */}
-          <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
-            <div className="px-2.5 py-1.5 border-b border-gray-50">
-              <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Recent Activity</p>
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-50">
+              <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Recent Activity</p>
             </div>
             {[
-              { name: 'Alice J.', quiz: 'Math Fundamentals', score: 92, color: 'bg-blue-500' },
-              { name: 'Bob S.', quiz: 'Science 101', score: 68, color: 'bg-purple-500' },
-              { name: 'Carlos R.', quiz: 'World History', score: 85, color: 'bg-green-500' },
-            ].map((row, i) => (
-              <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-gray-50 last:border-0">
-                <div className={`w-4 h-4 rounded-full ${row.color} flex items-center justify-center flex-shrink-0`}>
+              { name:'Alice J.',  quiz:'Math Fundamentals', score:92, c:'bg-blue-500' },
+              { name:'Bob S.',    quiz:'Science 101',        score:68, c:'bg-purple-500' },
+              { name:'Carlos R.', quiz:'World History',      score:85, c:'bg-green-500' },
+            ].map((row,i)=>(
+              <div key={i} className="flex items-center gap-2 px-3 py-2 border-b border-gray-50 last:border-0">
+                <div className={`w-4 h-4 rounded-full ${row.c} flex items-center justify-center flex-shrink-0`}>
                   <span className="text-[7px] text-white font-bold">{row.name[0]}</span>
                 </div>
                 <span className="text-[9px] text-gray-600 flex-1 truncate">{row.name} · {row.quiz}</span>
-                <span className={`text-[9px] font-bold ${row.score >= 70 ? 'text-green-600' : 'text-orange-500'}`}>{row.score}%</span>
+                <span className={`text-[9px] font-bold ${row.score>=70?'text-green-600':'text-orange-500'}`}>{row.score}%</span>
               </div>
             ))}
           </div>
@@ -173,59 +171,49 @@ function DashboardMockup() {
 }
 
 function QuizPlayerMockup() {
-  const [selected, setSelected] = useState<number | null>(1);
+  const [selected, setSelected] = useState<number|null>(1);
   return (
     <BrowserChrome url="quizmaster.app/student/take-quiz/1">
-      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col" style={{ height: 280 }}>
-        {/* Top bar */}
-        <div className="bg-white/90 border-b border-gray-100 flex items-center px-4 py-2 gap-3">
+      <div className="bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60 flex flex-col" style={{ height: 300 }}>
+        <div className="bg-white/90 backdrop-blur-sm border-b border-gray-100 flex items-center px-4 py-2.5 gap-3">
           <div className="flex-1">
             <p className="text-[10px] font-semibold text-gray-900">Math Fundamentals</p>
-            <p className="text-[9px] text-gray-400">Question 2 of 5</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">Question 2 of 5</p>
           </div>
-          <div className="text-xs font-bold text-blue-600 flex items-center gap-1">
-            <i className="ri-time-line text-xs" />24:13
+          <div className="text-xs font-bold text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-lg">
+            <i className="ri-time-line text-[10px]" />24:13
           </div>
-          <div className="px-2.5 py-1 bg-blue-600 rounded-lg text-[9px] font-medium text-white">Submit</div>
         </div>
-        {/* Progress */}
         <div className="px-4 pt-3">
-          <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full" style={{ width: '40%' }} />
+          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full" style={{ width:'40%' }} />
           </div>
         </div>
-        {/* Question card */}
-        <div className="flex-1 flex items-center justify-center px-4 py-2">
-          <div className="bg-white rounded-2xl shadow-lg p-4 w-full">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[9px] font-semibold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">Question 2</span>
-              <span className="text-[9px] text-green-600 flex items-center gap-1"><i className="ri-check-line text-[9px]" />Answered</span>
-            </div>
+        <div className="flex-1 flex items-center px-4 py-3">
+          <div className="bg-white rounded-2xl shadow-lg shadow-blue-100/50 p-4 w-full border border-gray-100/80">
             <p className="text-[11px] font-semibold text-gray-900 mb-3">What is 15% of 200?</p>
             <div className="space-y-1.5">
-              {['25', '30', '35', '20'].map((opt, i) => (
-                <div key={i}
-                  onClick={() => setSelected(i)}
-                  className={`flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${selected === i ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-blue-200'}`}>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${selected === i ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {['25','30','35','20'].map((opt,i)=>(
+                <div key={i} onClick={()=>setSelected(i)}
+                  className={`flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-all ${selected===i?'border-blue-400 bg-blue-50 shadow-sm shadow-blue-100':'border-gray-100 hover:border-gray-200'}`}>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 transition-colors ${selected===i?'bg-blue-600 text-white':'bg-gray-100 text-gray-400'}`}>
                     {['A','B','C','D'][i]}
                   </div>
-                  <span className={`text-[10px] font-medium ${selected === i ? 'text-blue-700' : 'text-gray-700'}`}>{opt}</span>
-                  {selected === i && <i className="ri-check-line text-blue-500 text-xs ml-auto" />}
+                  <span className={`text-[10px] font-medium ${selected===i?'text-blue-700':'text-gray-600'}`}>{opt}</span>
+                  {selected===i && <i className="ri-check-line text-blue-500 text-xs ml-auto" />}
                 </div>
               ))}
             </div>
           </div>
         </div>
-        {/* Bottom nav */}
-        <div className="bg-white/90 border-t border-gray-100 flex items-center justify-between px-4 py-2">
-          <div className="text-[9px] text-gray-400 px-3 py-1 border border-gray-200 rounded-lg">← Prev</div>
-          <div className="flex gap-1">
-            {[0,1,2,3,4].map(i => (
-              <div key={i} className={`rounded-full ${i === 1 ? 'w-4 h-2.5 bg-blue-600' : i < 2 ? 'w-2.5 h-2.5 bg-blue-400' : 'w-2.5 h-2.5 bg-gray-200'}`} />
+        <div className="bg-white/90 border-t border-gray-100 flex items-center justify-between px-4 py-2.5">
+          <div className="text-[9px] text-gray-400 px-3 py-1.5 border border-gray-200 rounded-lg">← Prev</div>
+          <div className="flex gap-1.5">
+            {[0,1,2,3,4].map(i=>(
+              <div key={i} className={`rounded-full transition-all ${i===1?'w-5 h-2 bg-blue-600':i<2?'w-2 h-2 bg-blue-300':'w-2 h-2 bg-gray-200'}`} />
             ))}
           </div>
-          <div className="text-[9px] text-white bg-blue-600 px-3 py-1 rounded-lg">Next →</div>
+          <div className="text-[9px] text-white bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1.5 rounded-lg shadow-sm shadow-blue-200">Next →</div>
         </div>
       </div>
     </BrowserChrome>
@@ -235,48 +223,46 @@ function QuizPlayerMockup() {
 function LeaderboardMockup() {
   return (
     <BrowserChrome url="quizmaster.app/student/leaderboard">
-      <div className="bg-gray-50 p-4" style={{ height: 280 }}>
-        <p className="text-[10px] font-bold text-gray-900 mb-1">Leaderboard</p>
-        <p className="text-[9px] text-gray-400 mb-3">See how you rank among your peers</p>
-        {/* Podium */}
-        <div className="flex items-end justify-center gap-3 mb-4" style={{ height: 80 }}>
+      <div className="bg-[#f8f9fb] p-4" style={{ height: 300 }}>
+        <p className="text-[10px] font-bold text-gray-900">Leaderboard</p>
+        <p className="text-[9px] text-gray-400 mt-0.5 mb-3">Top performers this week</p>
+        <div className="flex items-end justify-center gap-4 mb-4" style={{ height:88 }}>
           {[
-            { name: 'Priya S.', score: 93, h: 56, badge: 'bg-gray-400', rank: 2 },
-            { name: 'James C.', score: 96, h: 72, badge: 'bg-amber-400', rank: 1 },
-            { name: 'Lucas M.', score: 91, h: 48, badge: 'bg-orange-600', rank: 3 },
-          ].map((p, i) => (
+            { name:'Priya S.', score:93, h:56, badge:'bg-slate-400',  from:'from-violet-500 to-pink-500',  rank:2 },
+            { name:'James C.', score:96, h:72, badge:'bg-amber-400',  from:'from-blue-500 to-indigo-600',  rank:1 },
+            { name:'Lucas M.', score:91, h:44, badge:'bg-orange-500', from:'from-green-500 to-teal-600',   rank:3 },
+          ].map((p,i)=>(
             <div key={i} className="flex flex-col items-center gap-1">
               <div className="relative">
-                <div className={`w-7 h-7 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-[9px] font-bold ${['from-violet-500 to-pink-500','from-blue-500 to-indigo-600','from-green-500 to-teal-600'][i]}`}>
+                <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${p.from} flex items-center justify-center text-white text-[9px] font-bold shadow`}>
                   {p.name[0]}
                 </div>
                 <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${p.badge} flex items-center justify-center`}>
-                  <i className="ri-trophy-fill text-white" style={{ fontSize: 6 }} />
+                  <i className="ri-trophy-fill text-white" style={{ fontSize:5.5 }} />
                 </div>
               </div>
-              <p className="text-[8px] font-semibold text-gray-700">{p.score}%</p>
-              <div className={`w-10 rounded-t-lg flex items-end justify-center pb-1 ${['bg-gradient-to-b from-gray-300 to-gray-400','bg-gradient-to-b from-amber-400 to-amber-500','bg-gradient-to-b from-orange-400 to-orange-500'][i]}`}
-                style={{ height: p.h }}>
-                <span className="text-white font-bold text-[9px]">#{p.rank}</span>
+              <p className="text-[8px] font-bold text-gray-700">{p.score}%</p>
+              <div className={`w-10 rounded-t-xl flex items-end justify-center pb-1 ${['bg-gradient-to-b from-slate-300 to-slate-400','bg-gradient-to-b from-amber-400 to-amber-500','bg-gradient-to-b from-orange-400 to-orange-500'][i]}`}
+                style={{ height:p.h }}>
+                <span className="text-white font-black text-[8px]">#{p.rank}</span>
               </div>
             </div>
           ))}
         </div>
-        {/* Ranked list */}
-        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
           {[
-            { rank: 4, name: 'Sarah Kim', score: 88, me: true },
-            { rank: 5, name: 'Aisha O.', score: 85, me: false },
-            { rank: 6, name: 'Tom N.', score: 82, me: false },
-          ].map((e, i) => (
-            <div key={i} className={`flex items-center gap-2 px-2.5 py-1.5 border-b border-gray-50 last:border-0 ${e.me ? 'bg-blue-50' : ''}`}>
-              <span className="text-[8px] font-bold text-gray-400 w-4">#{e.rank}</span>
-              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+            { rank:4, name:'Sarah Kim', score:88, me:true },
+            { rank:5, name:'Aisha O.',  score:85, me:false },
+            { rank:6, name:'Tom N.',    score:82, me:false },
+          ].map((e,i)=>(
+            <div key={i} className={`flex items-center gap-2 px-3 py-2 border-b border-gray-50 last:border-0 ${e.me?'bg-blue-50':''}`}>
+              <span className="text-[8px] font-bold text-gray-300 w-5">#{e.rank}</span>
+              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center">
                 <span className="text-[7px] text-white font-bold">{e.name[0]}</span>
               </div>
-              <span className={`text-[9px] font-medium flex-1 ${e.me ? 'text-blue-700' : 'text-gray-700'}`}>{e.name}{e.me ? ' (You)' : ''}</span>
+              <span className={`text-[9px] font-medium flex-1 ${e.me?'text-blue-700':'text-gray-600'}`}>{e.name}{e.me?' (You)':''}</span>
               <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${e.score}%` }} />
+                <div className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full" style={{ width:`${e.score}%` }} />
               </div>
               <span className="text-[9px] font-bold text-gray-700">{e.score}%</span>
             </div>
@@ -288,356 +274,449 @@ function LeaderboardMockup() {
 }
 
 // ---------------------------------------------------------------------------
-// Feature marquee strip
+// Marquee
 // ---------------------------------------------------------------------------
 const marqueeItems = [
-  { icon: 'ri-file-list-3-line', label: 'Quiz Builder' },
-  { icon: 'ri-timer-line', label: 'Timed Exams' },
-  { icon: 'ri-bar-chart-line', label: 'Analytics' },
-  { icon: 'ri-trophy-line', label: 'Leaderboards' },
-  { icon: 'ri-shield-keyhole-line', label: 'Secure Auth' },
-  { icon: 'ri-group-line', label: 'Student Mgmt' },
-  { icon: 'ri-pie-chart-line', label: 'Score Insights' },
-  { icon: 'ri-question-line', label: 'Question Bank' },
-  { icon: 'ri-mail-send-line', label: 'Email Reset' },
-  { icon: 'ri-device-line', label: 'Responsive' },
+  { icon:'ri-file-list-3-line', label:'Quiz Builder' },
+  { icon:'ri-timer-line',        label:'Timed Exams' },
+  { icon:'ri-bar-chart-line',    label:'Analytics' },
+  { icon:'ri-trophy-line',       label:'Leaderboards' },
+  { icon:'ri-shield-keyhole-line',label:'Secure Auth' },
+  { icon:'ri-group-line',        label:'Student Mgmt' },
+  { icon:'ri-pie-chart-line',    label:'Score Insights' },
+  { icon:'ri-question-line',     label:'Question Bank' },
+  { icon:'ri-mail-send-line',    label:'Email Reset' },
+  { icon:'ri-device-line',       label:'Responsive' },
 ];
+
+// ---------------------------------------------------------------------------
+// Navbar
+// ---------------------------------------------------------------------------
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <motion.header
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: EASE }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm shadow-black/5 border-b border-gray-100' : 'bg-transparent'}`}
+    >
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-200">
+            <i className="ri-brain-line text-white text-sm" />
+          </div>
+          <span className="font-bold text-gray-900 text-lg tracking-tight">QuizMaster</span>
+        </div>
+        <nav className="hidden md:flex items-center gap-7 text-sm text-gray-500">
+          {['Features', 'Screenshots', 'How it works'].map((label) => (
+            <a key={label} href={`#${label.toLowerCase().replace(/ /g, '-')}`}
+              className="hover:text-gray-900 transition-colors font-medium relative group">
+              {label}
+              <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-blue-600 rounded-full transition-all group-hover:w-full" />
+            </a>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
+          <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">Sign in</Link>
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <Link href="/register"
+              className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-gray-900/20">
+              Get started <i className="ri-arrow-right-line text-xs" />
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    </motion.header>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default function LandingPage() {
-  // Reveal refs for each scroll section
-  const statsRef     = useReveal();
-  const featuresRef  = useReveal();
-  const screensRef   = useReveal();
-  const howRef       = useReveal();
-  const ctaRef       = useReveal();
+  const heroRef    = useRef(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const heroY      = useTransform(scrollYProgress, [0, 1], ['0%', '18%']);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
-
-      {/* ── Navbar ──────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <i className="ri-brain-line text-white text-base" />
-            </div>
-            <span className="font-bold text-gray-900 text-lg tracking-tight">QuizMaster</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500">
-            <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
-            <a href="#screenshots" className="hover:text-gray-900 transition-colors">Screenshots</a>
-            <a href="#how" className="hover:text-gray-900 transition-colors">How it works</a>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium">
-              Sign in
-            </Link>
-            <Link href="/register"
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm shadow-blue-200">
-              Get started
-              <i className="ri-arrow-right-line text-sm" />
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative pt-28 pb-20 px-6 overflow-hidden">
-        {/* Animated gradient blobs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-          <div className="animate-blob absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-blue-100 opacity-40 blur-3xl" />
-          <div className="animate-blob absolute top-20 right-0 w-[500px] h-[500px] rounded-full bg-indigo-100 opacity-40 blur-3xl" style={{ animationDelay: '2s' }} />
-          <div className="animate-blob absolute bottom-0 left-1/2 w-[400px] h-[400px] rounded-full bg-violet-100 opacity-30 blur-3xl" style={{ animationDelay: '4s' }} />
+      <section ref={heroRef} className="relative min-h-screen flex items-center pt-16 overflow-hidden">
+        {/* Background mesh */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(99,102,241,0.12),transparent)]" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-300/40 to-transparent" />
+          {/* Grid pattern */}
+          <svg className="absolute inset-0 w-full h-full opacity-[0.025]" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+          {/* Floating orbs */}
+          <motion.div className="absolute -top-40 -right-40 w-[700px] h-[700px] rounded-full"
+            style={{ background:'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)' }}
+            animate={{ scale:[1,1.1,1], rotate:[0,10,0] }}
+            transition={{ duration:14, repeat:Infinity, ease:'easeInOut' }} />
+          <motion.div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] rounded-full"
+            style={{ background:'radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)' }}
+            animate={{ scale:[1,1.08,1], rotate:[0,-8,0] }}
+            transition={{ duration:18, repeat:Infinity, ease:'easeInOut' }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto">
-          <div className="flex flex-col lg:flex-row items-center gap-16">
+        <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative w-full max-w-7xl mx-auto px-6 py-20">
+          <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-20">
+
             {/* Left copy */}
-            <div className="flex-1 text-center lg:text-left" style={{ animation: 'fadeUp 0.8s ease forwards' }}>
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse-soft" />
+            <motion.div className="flex-1 text-center lg:text-left"
+              variants={staggerContainer(0.1)} initial="hidden" animate="show">
+              <motion.div variants={fadeUp}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-100/80 text-indigo-700 text-xs font-semibold mb-7">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
                 Open-source quiz platform
-              </div>
+              </motion.div>
 
-              <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
-                The modern way to{' '}
+              <motion.h1 variants={fadeUp} className="text-5xl lg:text-[3.75rem] font-bold text-gray-950 leading-[1.1] tracking-tight mb-6">
+                The modern way
+                <br />
                 <span className="relative">
-                  <span className="text-transparent bg-clip-text"
-                    style={{ backgroundImage: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)', backgroundSize: '200% auto', animation: 'shimmer 4s linear infinite' }}>
-                    create & manage
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600">
+                    to run quizzes
                   </span>
-                  {/* Underline decoration */}
-                  <svg className="absolute -bottom-2 left-0 w-full" height="6" viewBox="0 0 300 6" fill="none" aria-hidden>
-                    <path d="M0 3 Q75 0 150 3 Q225 6 300 3" stroke="url(#grad)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                    <defs>
-                      <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#8b5cf6" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
                 </span>
-                <br />quizzes
-              </h1>
+              </motion.h1>
 
-              <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0">
-                Build engaging quizzes, track student performance in real time, and gain deep insights —
-                all from a single, beautifully designed platform.
-              </p>
+              <motion.p variants={fadeUp} className="text-lg text-gray-500 leading-relaxed mb-9 max-w-[440px] mx-auto lg:mx-0">
+                Build engaging quizzes, track student performance in real time, and
+                gain deep insights — all in one beautifully designed platform.
+              </motion.p>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3 justify-center lg:justify-start">
-                <Link href="/register"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-200 text-sm">
-                  <i className="ri-rocket-line" />Start for free
-                </Link>
-                <Link href="/student"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 border border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700 font-semibold rounded-xl transition-all text-sm">
-                  <i className="ri-play-circle-line text-blue-500" />Student demo
-                </Link>
-              </div>
+              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  <Link href="/register"
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition-colors shadow-xl shadow-gray-900/20 text-sm">
+                    <i className="ri-rocket-line" /> Start for free
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  <Link href="/student"
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-all text-sm shadow-sm">
+                    <i className="ri-play-circle-line text-blue-600" /> Student demo
+                  </Link>
+                </motion.div>
+              </motion.div>
 
-              {/* Mini social proof */}
-              <div className="flex items-center gap-4 mt-8 justify-center lg:justify-start">
-                <div className="flex -space-x-2">
-                  {['bg-blue-500','bg-purple-500','bg-green-500','bg-orange-500','bg-pink-500'].map((c,i) => (
-                    <div key={i} className={`w-7 h-7 rounded-full ${c} border-2 border-white flex items-center justify-center`}>
-                      <span className="text-[8px] text-white font-bold">{['A','B','C','D','E'][i]}</span>
+              <motion.div variants={fadeUp} className="flex items-center gap-4 mt-9 justify-center lg:justify-start">
+                <div className="flex -space-x-2.5">
+                  {['bg-blue-500','bg-violet-500','bg-emerald-500','bg-orange-500','bg-pink-500'].map((c,i) => (
+                    <div key={i} className={`w-8 h-8 rounded-full ${c} border-2 border-white flex items-center justify-center shadow-sm`}>
+                      <span className="text-[9px] text-white font-bold">{['A','B','C','D','E'][i]}</span>
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500"><span className="font-semibold text-gray-800">1,284+</span> students already enrolled</p>
-              </div>
-            </div>
+                <p className="text-sm text-gray-500"><span className="font-semibold text-gray-800">1,284+</span> students enrolled</p>
+              </motion.div>
+            </motion.div>
 
-            {/* Right — floating dashboard mockup */}
-            <div className="flex-1 w-full max-w-2xl lg:max-w-none relative" style={{ animation: 'fadeUp 0.8s ease 0.25s forwards', opacity: 0 }}>
-              {/* Glow backdrop */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 blur-3xl rounded-3xl" />
-              {/* Floating main card */}
-              <div className="relative animate-float" style={{ transformOrigin: 'center bottom' }}>
+            {/* Right — floating mockup */}
+            <motion.div className="flex-1 w-full max-w-2xl relative"
+              initial={{ opacity:0, x:40 }} animate={{ opacity:1, x:0 }}
+              transition={{ duration:0.8, delay:0.3, ease:EASE }}>
+
+              {/* Glow */}
+              <div className="absolute -inset-8 bg-gradient-to-br from-blue-400/10 via-indigo-400/10 to-violet-400/10 blur-3xl rounded-3xl" />
+
+              <motion.div
+                animate={{ y:[0,-10,0] }}
+                transition={{ duration:5, repeat:Infinity, ease:'easeInOut' }}
+                className="relative">
                 <DashboardMockup />
-              </div>
-              {/* Floating badge — correct answer */}
-              <div className="absolute -left-6 bottom-20 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 flex items-center gap-3 animate-float" style={{ animationDelay: '0.5s' }}>
-                <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center">
-                  <i className="ri-checkbox-circle-line text-green-600 text-lg" />
+              </motion.div>
+
+              {/* Badge — score */}
+              <motion.div
+                initial={{ opacity:0, x:-24, y:8 }} animate={{ opacity:1, x:0, y:0 }}
+                transition={{ duration:0.6, delay:0.9 }}
+                className="absolute -left-8 bottom-16 bg-white rounded-2xl shadow-2xl shadow-black/10 border border-gray-100 px-4 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                  <i className="ri-checkbox-circle-fill text-emerald-500 text-xl" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-gray-900">Quiz Submitted!</p>
-                  <p className="text-xs text-green-600 font-semibold">Score: 92% · Passed</p>
+                  <p className="text-xs text-emerald-600 font-semibold mt-0.5">Score: 92% · Passed ✓</p>
                 </div>
-              </div>
-              {/* Floating badge — new student */}
-              <div className="absolute -right-4 top-10 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 flex items-center gap-3 animate-float-slow" style={{ animationDelay: '1.5s' }}>
-                <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center">
-                  <i className="ri-user-add-line text-purple-600 text-lg" />
+              </motion.div>
+
+              {/* Badge — new student */}
+              <motion.div
+                initial={{ opacity:0, x:24, y:-8 }} animate={{ opacity:1, x:0, y:0 }}
+                transition={{ duration:0.6, delay:1.1 }}
+                className="absolute -right-6 top-8 bg-white rounded-2xl shadow-2xl shadow-black/10 border border-gray-100 px-4 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+                  <i className="ri-user-add-line text-violet-500 text-xl" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-gray-900">New student</p>
-                  <p className="text-xs text-gray-500">Laura M. enrolled</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Laura M. enrolled</p>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
+
+        {/* Scroll indicator */}
+        <motion.div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
+          animate={{ y:[0,6,0] }} transition={{ duration:2, repeat:Infinity, ease:'easeInOut' }}>
+          <span className="text-xs text-gray-400 font-medium tracking-wider uppercase">Scroll</span>
+          <i className="ri-arrow-down-line text-gray-300" />
+        </motion.div>
       </section>
 
-      {/* ── Marquee strip ───────────────────────────────────────────────── */}
-      <div className="border-y border-gray-100 bg-gray-50 py-4 overflow-hidden">
+      {/* ── Marquee ─────────────────────────────────────────────────────── */}
+      <div className="border-y border-gray-100 bg-gray-50/80 py-4 overflow-hidden">
         <div className="flex animate-marquee whitespace-nowrap">
-          {[...marqueeItems, ...marqueeItems].map((item, i) => (
-            <div key={i} className="inline-flex items-center gap-2 px-6 text-gray-500 text-sm font-medium">
-              <i className={`${item.icon} text-blue-500`} />
+          {[...marqueeItems,...marqueeItems].map((item,i)=>(
+            <div key={i} className="inline-flex items-center gap-2 px-8 text-gray-400 text-sm font-medium">
+              <i className={`${item.icon} text-indigo-400`} />
               {item.label}
-              <span className="ml-4 text-gray-300">·</span>
+              <span className="ml-6 text-gray-200">·</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* ── Stats ───────────────────────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-white">
-        <div ref={statsRef} className="reveal max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {[
-            { value: 48, suffix: '+', label: 'Quizzes created', icon: 'ri-file-list-3-line', color: 'text-blue-600 bg-blue-50' },
-            { value: 1284, suffix: '+', label: 'Active students', icon: 'ri-group-line', color: 'text-purple-600 bg-purple-50' },
-            { value: 5632, suffix: '+', label: 'Quiz attempts', icon: 'ri-edit-line', color: 'text-green-600 bg-green-50' },
-            { value: 74, suffix: '%', label: 'Average score', icon: 'ri-bar-chart-line', color: 'text-orange-600 bg-orange-50' },
-          ].map(s => (
-            <div key={s.label} className="flex flex-col items-center gap-2">
-              <div className={`w-12 h-12 rounded-2xl ${s.color} flex items-center justify-center mb-1`}>
-                <i className={`${s.icon} text-xl`} />
-              </div>
-              <p className="text-4xl font-bold text-gray-900 tabular-nums">
-                <Counter to={s.value} suffix={s.suffix} />
-              </p>
-              <p className="text-sm text-gray-500">{s.label}</p>
-            </div>
-          ))}
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            variants={staggerContainer()} initial="hidden" whileInView="show" viewport={{ once:true, margin:'-80px' }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-10 text-center">
+            {[
+              { value:48,   suffix:'+', label:'Quizzes created',  icon:'ri-file-list-3-line', color:'text-blue-600',   bg:'bg-blue-50' },
+              { value:1284, suffix:'+', label:'Active students',  icon:'ri-group-line',        color:'text-violet-600', bg:'bg-violet-50' },
+              { value:5632, suffix:'+', label:'Quiz attempts',    icon:'ri-edit-line',         color:'text-emerald-600',bg:'bg-emerald-50' },
+              { value:74,   suffix:'%', label:'Average score',    icon:'ri-bar-chart-line',    color:'text-orange-600', bg:'bg-orange-50' },
+            ].map(s=>(
+              <motion.div key={s.label} variants={fadeUp} className="flex flex-col items-center gap-3">
+                <div className={`w-14 h-14 rounded-2xl ${s.bg} ${s.color} flex items-center justify-center`}>
+                  <i className={`${s.icon} text-2xl`} />
+                </div>
+                <p className="text-4xl font-bold text-gray-950 tabular-nums tracking-tight">
+                  <Counter to={s.value} suffix={s.suffix} />
+                </p>
+                <p className="text-sm text-gray-400 font-medium">{s.label}</p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       {/* ── Features ────────────────────────────────────────────────────── */}
-      <section id="features" className="py-20 px-6 bg-gray-50">
+      <section id="features" className="py-24 px-6 bg-gray-50/60">
         <div className="max-w-6xl mx-auto">
-          <div ref={featuresRef} className="reveal text-center mb-14">
-            <span className="text-xs font-semibold uppercase tracking-widest text-blue-600">Features</span>
-            <h2 className="text-4xl font-bold text-gray-900 mt-3 mb-4">Everything you need to run quizzes</h2>
-            <p className="text-gray-500 max-w-xl mx-auto">From building questions to analysing results — QuizMaster handles the whole lifecycle.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div variants={staggerContainer()} initial="hidden" whileInView="show" viewport={{ once:true, margin:'-80px' }}
+            className="text-center mb-16">
+            <motion.p variants={fadeUp} className="text-sm font-semibold text-indigo-600 tracking-widest uppercase mb-3">Features</motion.p>
+            <motion.h2 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-gray-950 tracking-tight mb-5">
+              Everything you need
+            </motion.h2>
+            <motion.p variants={fadeUp} className="text-gray-500 max-w-md mx-auto text-lg">
+              From building questions to analysing results — one platform, end to end.
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            variants={staggerContainer(0.05)} initial="hidden" whileInView="show" viewport={{ once:true, margin:'-60px' }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: 'ri-file-list-3-line', title: 'Quiz Builder', desc: 'Create quizzes with MCQ questions, set time limits, and publish or save as draft.', color: 'bg-blue-50 text-blue-600', delay: 0 },
-              { icon: 'ri-question-line', title: 'Question Bank', desc: 'Manage a reusable bank of questions tagged by subject and difficulty (easy/medium/hard).', color: 'bg-indigo-50 text-indigo-600', delay: 100 },
-              { icon: 'ri-timer-line', title: 'Timed Quiz Player', desc: 'Students see a live countdown, navigate freely between questions, and get instant results.', color: 'bg-violet-50 text-violet-600', delay: 200 },
-              { icon: 'ri-bar-chart-line', title: 'Rich Analytics', desc: 'Charts for score distribution, pass/fail rates, per-quiz averages, and score trends.', color: 'bg-green-50 text-green-600', delay: 300 },
-              { icon: 'ri-trophy-line', title: 'Leaderboard', desc: 'A motivating podium view for the top 3 students with a ranked list for everyone else.', color: 'bg-amber-50 text-amber-600', delay: 400 },
-              { icon: 'ri-shield-keyhole-line', title: 'Secure Auth', desc: 'Email + password sign-in with scrypt hashing, session cookies, and password-reset via email.', color: 'bg-rose-50 text-rose-600', delay: 500 },
-            ].map(f => (
-              <div key={f.title}
-                className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group"
-                style={{ animation: `fadeUp 0.6s ease ${f.delay}ms both` }}>
-                <div className={`w-11 h-11 rounded-2xl ${f.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              { icon:'ri-file-list-3-line',   title:'Quiz Builder',    desc:'Create quizzes with MCQ questions, set time limits, and publish or keep as draft.', color:'text-blue-600',   bg:'bg-blue-50',   ring:'ring-blue-100' },
+              { icon:'ri-question-line',       title:'Question Bank',   desc:'Manage a reusable bank tagged by subject and difficulty — easy, medium, or hard.',  color:'text-indigo-600', bg:'bg-indigo-50', ring:'ring-indigo-100' },
+              { icon:'ri-timer-line',          title:'Timed Player',    desc:'Live countdown, free navigation between questions, and instant results on submit.',   color:'text-violet-600', bg:'bg-violet-50', ring:'ring-violet-100' },
+              { icon:'ri-bar-chart-line',      title:'Rich Analytics',  desc:'Charts for score distribution, pass/fail rates, per-quiz averages, and trends.',     color:'text-emerald-600',bg:'bg-emerald-50',ring:'ring-emerald-100' },
+              { icon:'ri-trophy-line',         title:'Leaderboard',     desc:'Motivating podium for the top 3 students with a ranked list for everyone else.',     color:'text-amber-600',  bg:'bg-amber-50',  ring:'ring-amber-100' },
+              { icon:'ri-shield-keyhole-line', title:'Secure Auth',     desc:'Email + password with scrypt hashing, session cookies, and password-reset by email.', color:'text-rose-600',   bg:'bg-rose-50',   ring:'ring-rose-100' },
+            ].map(f=>(
+              <motion.div key={f.title} variants={fadeUp}
+                whileHover={{ y:-4, boxShadow:'0 20px 40px -12px rgba(0,0,0,0.08)' }}
+                className={`bg-white rounded-2xl p-7 ring-1 ${f.ring} transition-shadow duration-300 cursor-default`}>
+                <div className={`w-12 h-12 rounded-2xl ${f.bg} ${f.color} flex items-center justify-center mb-5`}>
                   <i className={`${f.icon} text-xl`} />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{f.title}</h3>
+                <h3 className="font-bold text-gray-900 text-base mb-2">{f.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* ── App Screenshots ─────────────────────────────────────────────── */}
-      <section id="screenshots" className="py-24 px-6 bg-white overflow-hidden">
+      {/* ── Screenshots ─────────────────────────────────────────────────── */}
+      <section id="screenshots" className="py-28 px-6 bg-white overflow-hidden">
         <div className="max-w-6xl mx-auto">
-          <div ref={screensRef} className="reveal text-center mb-16">
-            <span className="text-xs font-semibold uppercase tracking-widest text-blue-600">Screenshots</span>
-            <h2 className="text-4xl font-bold text-gray-900 mt-3 mb-4">See it in action</h2>
-            <p className="text-gray-500 max-w-lg mx-auto">A clean, focused UI for admins and students alike.</p>
-          </div>
+          <motion.div variants={staggerContainer()} initial="hidden" whileInView="show" viewport={{ once:true, margin:'-80px' }}
+            className="text-center mb-20">
+            <motion.p variants={fadeUp} className="text-sm font-semibold text-indigo-600 tracking-widest uppercase mb-3">Screenshots</motion.p>
+            <motion.h2 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-gray-950 tracking-tight mb-5">
+              See it in action
+            </motion.h2>
+            <motion.p variants={fadeUp} className="text-gray-500 max-w-md mx-auto text-lg">
+              A clean, focused UI for both admins and students.
+            </motion.p>
+          </motion.div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Left screen — quiz player */}
-            <div className="reveal-left lg:mt-12" ref={useReveal()}>
-              <div className="mb-3">
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                  <i className="ri-play-circle-line mr-1" />Student · Quiz Player
-                </span>
-              </div>
-              <QuizPlayerMockup />
-              <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-                Interactive quiz player with countdown timer, free navigation between questions, and instant score on submit.
-              </p>
-            </div>
-            {/* Center screen — dashboard (elevated) */}
-            <div className="reveal" ref={useReveal()}>
-              <div className="mb-3">
-                <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                  <i className="ri-dashboard-line mr-1" />Admin · Dashboard
-                </span>
-              </div>
-              <DashboardMockup />
-              <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-                Full admin dashboard with stat cards, score distribution charts, and a live activity feed.
-              </p>
-            </div>
-            {/* Right screen — leaderboard */}
-            <div className="reveal-right lg:mt-12" ref={useReveal()}>
-              <div className="mb-3">
-                <span className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1 rounded-full">
-                  <i className="ri-trophy-line mr-1" />Student · Leaderboard
-                </span>
-              </div>
-              <LeaderboardMockup />
-              <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-                Motivating leaderboard with podium for the top 3 and a ranked list with score progress bars.
-              </p>
-            </div>
+            {[
+              {
+                label: 'Student · Quiz Player',
+                labelColor: 'text-blue-600 bg-blue-50',
+                mockup: <QuizPlayerMockup />,
+                desc: 'Interactive quiz player with countdown timer and instant score on submit.',
+                delay: 0, offset: 'lg:mt-14',
+              },
+              {
+                label: 'Admin · Dashboard',
+                labelColor: 'text-indigo-600 bg-indigo-50',
+                mockup: <DashboardMockup />,
+                desc: 'Full admin dashboard with stat cards, charts, and a live activity feed.',
+                delay: 0.15, offset: '',
+              },
+              {
+                label: 'Student · Leaderboard',
+                labelColor: 'text-violet-600 bg-violet-50',
+                mockup: <LeaderboardMockup />,
+                desc: 'Motivating leaderboard with a podium for the top 3 and ranked list.',
+                delay: 0.3, offset: 'lg:mt-14',
+              },
+            ].map((s, i) => (
+              <motion.div key={i} className={s.offset}
+                initial={{ opacity:0, y:40 }} whileInView={{ opacity:1, y:0 }}
+                viewport={{ once:true, margin:'-60px' }}
+                transition={{ duration:0.7, delay:s.delay, ease:EASE }}>
+                <div className="mb-3">
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${s.labelColor} px-3 py-1.5 rounded-full`}>
+                    {s.label}
+                  </span>
+                </div>
+                <motion.div whileHover={{ scale:1.01 }} transition={{ type:'spring', stiffness:300, damping:25 }}>
+                  {s.mockup}
+                </motion.div>
+                <p className="text-sm text-gray-400 mt-4 leading-relaxed">{s.desc}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ── How it works ────────────────────────────────────────────────── */}
-      <section id="how" className="py-24 px-6 bg-gray-50">
+      <section id="how-it-works" className="py-28 px-6 bg-gray-50/60">
         <div className="max-w-5xl mx-auto">
-          <div ref={howRef} className="reveal text-center mb-16">
-            <span className="text-xs font-semibold uppercase tracking-widest text-blue-600">How it works</span>
-            <h2 className="text-4xl font-bold text-gray-900 mt-3 mb-4">Up and running in minutes</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Connector line */}
-            <div className="hidden md:block absolute top-8 left-1/3 right-1/3 h-0.5 bg-gradient-to-r from-blue-200 via-indigo-200 to-violet-200" />
+          <motion.div variants={staggerContainer()} initial="hidden" whileInView="show" viewport={{ once:true, margin:'-80px' }}
+            className="text-center mb-20">
+            <motion.p variants={fadeUp} className="text-sm font-semibold text-indigo-600 tracking-widest uppercase mb-3">How it works</motion.p>
+            <motion.h2 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-gray-950 tracking-tight">
+              Up and running in minutes
+            </motion.h2>
+          </motion.div>
+
+          <motion.div
+            variants={staggerContainer(0.15)} initial="hidden" whileInView="show" viewport={{ once:true, margin:'-60px' }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Connector */}
+            <div className="hidden md:block absolute top-10 left-[calc(33.33%-1rem)] right-[calc(33.33%-1rem)] h-px bg-gradient-to-r from-blue-200 via-indigo-200 to-violet-200" />
+
             {[
-              { step: '01', icon: 'ri-user-add-line', title: 'Create an account', desc: 'Register with your email, set a password, and access the admin dashboard instantly.', color: 'from-blue-500 to-indigo-500', delay: 0 },
-              { step: '02', icon: 'ri-file-list-3-line', title: 'Build your quiz', desc: 'Add questions to the question bank, then assemble them into timed, publishable quizzes.', color: 'from-indigo-500 to-violet-500', delay: 150 },
-              { step: '03', icon: 'ri-graduation-cap-line', title: 'Share with students', desc: 'Students sign in, take quizzes, view their results, and compete on the leaderboard.', color: 'from-violet-500 to-purple-500', delay: 300 },
-            ].map(s => (
-              <div key={s.step} className="flex flex-col items-center text-center group"
-                style={{ animation: `fadeUp 0.65s ease ${s.delay}ms both` }}>
-                <div className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`}>
-                  <i className={`${s.icon} text-white text-2xl`} />
-                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border-2 border-gray-100 flex items-center justify-center">
+              { step:'01', icon:'ri-user-add-line',       title:'Create an account', desc:'Register with your email, set a password, and access the admin dashboard instantly.', from:'from-blue-500 to-indigo-600' },
+              { step:'02', icon:'ri-file-list-3-line',     title:'Build your quiz',   desc:'Add questions to the bank, then assemble them into timed publishable quizzes.',       from:'from-indigo-500 to-violet-600' },
+              { step:'03', icon:'ri-graduation-cap-line',  title:'Share & compete',   desc:'Students sign in, take quizzes, view results, and climb the leaderboard.',            from:'from-violet-500 to-purple-600' },
+            ].map(s=>(
+              <motion.div key={s.step} variants={fadeUp}
+                className="flex flex-col items-center text-center group">
+                <motion.div whileHover={{ scale:1.08 }} transition={{ type:'spring', stiffness:300 }}
+                  className={`relative w-20 h-20 rounded-3xl bg-gradient-to-br ${s.from} flex items-center justify-center mb-6 shadow-xl shadow-indigo-200/50`}>
+                  <i className={`${s.icon} text-white text-3xl`} />
+                  <div className="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm">
                     <span className="text-[9px] font-black text-gray-600">{s.step}</span>
                   </div>
-                </div>
-                <h3 className="font-bold text-gray-900 text-lg mb-2">{s.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed max-w-xs">{s.desc}</p>
-              </div>
+                </motion.div>
+                <h3 className="font-bold text-gray-900 text-lg mb-2.5">{s.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed max-w-[220px]">{s.desc}</p>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* ── CTA banner ──────────────────────────────────────────────────── */}
-      <section className="py-24 px-6">
-        <div ref={ctaRef} className="reveal max-w-4xl mx-auto relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-12 text-center shadow-2xl shadow-blue-200">
-          {/* Decorative blobs inside banner */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-            <div className="animate-blob absolute -top-12 -left-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
-            <div className="animate-blob absolute -bottom-12 -right-12 w-56 h-56 rounded-full bg-white/10 blur-2xl" style={{ animationDelay: '3s' }} />
-          </div>
-          <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-6">
-              <i className="ri-brain-line text-white text-3xl" />
+      {/* ── CTA ─────────────────────────────────────────────────────────── */}
+      <section className="py-28 px-6">
+        <motion.div
+          initial={{ opacity:0, y:40 }} whileInView={{ opacity:1, y:0 }}
+          viewport={{ once:true, margin:'-80px' }}
+          transition={{ duration:0.7, ease:EASE }}
+          className="max-w-4xl mx-auto relative overflow-hidden rounded-3xl p-1 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 shadow-2xl shadow-indigo-500/30">
+          {/* Inner card */}
+          <div className="relative rounded-[20px] bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 px-12 py-16 text-center overflow-hidden">
+            {/* Decorative circles */}
+            <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-white/5 blur-2xl" />
+            <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-white/5 blur-2xl" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(255,255,255,0.08),transparent)]" />
+
+            <div className="relative">
+              <motion.div
+                animate={{ rotate:[0,5,-5,0] }} transition={{ duration:4, repeat:Infinity, ease:'easeInOut' }}
+                className="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center mx-auto mb-7 ring-1 ring-white/20">
+                <i className="ri-brain-line text-white text-3xl" />
+              </motion.div>
+              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-5 tracking-tight">Ready to get started?</h2>
+              <p className="text-blue-100 max-w-md mx-auto mb-10 text-lg leading-relaxed">
+                Create your free account and start building quizzes in under 5 minutes.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <motion.div whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}>
+                  <Link href="/register"
+                    className="flex items-center justify-center gap-2 px-8 py-4 bg-white text-gray-900 font-bold rounded-xl hover:bg-blue-50 transition-colors shadow-lg text-sm">
+                    <i className="ri-rocket-line text-indigo-600" /> Create free account
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}>
+                  <Link href="/login"
+                    className="flex items-center justify-center gap-2 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-colors border border-white/20 text-sm">
+                    Sign in
+                  </Link>
+                </motion.div>
+              </div>
             </div>
-            <h2 className="text-4xl font-bold text-white mb-4">Ready to get started?</h2>
-            <p className="text-blue-100 max-w-md mx-auto mb-8 leading-relaxed">
-              Create your free account today and start building quizzes in under 5 minutes.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/register"
-                className="flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all shadow-lg text-sm">
-                <i className="ri-rocket-line" />Create free account
-              </Link>
-              <Link href="/login"
-                className="flex items-center justify-center gap-2 px-8 py-3.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-all border border-white/20 text-sm">
-                Sign in
-              </Link>
-            </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-gray-100 py-10 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-gray-100 py-12 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <i className="ri-brain-line text-white text-sm" />
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
+              <i className="ri-brain-line text-white text-xs" />
             </div>
             <span className="font-bold text-gray-900">QuizMaster</span>
           </div>
           <p className="text-sm text-gray-400 text-center">
             Built with Next.js 16 · better-auth · Prisma 7 · Neon · Tailwind CSS
           </p>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <Link href="/login" className="hover:text-gray-900 transition-colors">Sign in</Link>
-            <Link href="/register" className="hover:text-gray-900 transition-colors">Register</Link>
-            <Link href="/docs" className="hover:text-gray-900 transition-colors">Docs</Link>
+          <div className="flex items-center gap-5 text-sm text-gray-400">
+            <Link href="/login"    className="hover:text-gray-800 transition-colors">Sign in</Link>
+            <Link href="/register" className="hover:text-gray-800 transition-colors">Register</Link>
+            <Link href="/docs"     className="hover:text-gray-800 transition-colors">Docs</Link>
           </div>
         </div>
       </footer>
