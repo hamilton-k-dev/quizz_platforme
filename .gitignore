@@ -40,3 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /quizz_platforme_app_design
+skills-lock.json
+/.agents/
